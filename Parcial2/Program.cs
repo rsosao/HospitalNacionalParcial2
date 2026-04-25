@@ -9,9 +9,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = ResolverCadenaConexion(builder.Configuration);
 if (string.IsNullOrWhiteSpace(connectionString))
-    throw new InvalidOperationException("Defina la cadena 'ConnectionStrings:DefaultConnection' (MySQL en Azure o local).");
+    throw new InvalidOperationException(
+        "Defina la base de datos: en Azure use 'Connection strings' (nombre DefaultConnection, tipo MySQL o Custom) " +
+        "o un App setting 'ConnectionStrings__DefaultConnection' con la cadena completa.");
 
 builder.Services.AddDbContext<HospitalContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0))));
@@ -23,7 +25,17 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HospitalContext>();
-    await db.Database.MigrateAsync();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+    try
+    {
+        await db.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex,
+            "No se pudieron aplicar migraciones. Compruebe la cadena de conexión, SSL, firewall de MySQL en Azure y que el servidor permita conexiones desde App Service.");
+        throw;
+    }
 }
 
 app.MapOpenApi();
@@ -34,3 +46,27 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
+
+static string? ResolverCadenaConexion(ConfigurationManager configuration)
+{
+    var cs = configuration.GetConnectionString("DefaultConnection");
+    if (!string.IsNullOrWhiteSpace(cs))
+        return cs;
+
+    // App Service: si la cadena está en "Connection strings" con tipo MySQL/Custom
+    foreach (var key in new[]
+             {
+                 "MYSQLCONNSTR_DefaultConnection",
+                 "CUSTOMCONNSTR_DefaultConnection",
+                 "SQLCONNSTR_DefaultConnection",
+                 "MYSQLCONNSTR_defaultconnection",
+                 "CUSTOMCONNSTR_defaultconnection"
+             })
+    {
+        var v = configuration[key];
+        if (!string.IsNullOrWhiteSpace(v))
+            return v;
+    }
+
+    return configuration["ConnectionStrings:DefaultConnection"];
+}
