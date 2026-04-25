@@ -1,0 +1,50 @@
+@Parcial2_HostAddress = http://localhost:5268
+@json = application/json
+
+### Health
+GET {{Parcial2_HostAddress}}/health
+Accept: {{json}}
+
+### Listar (orden: gravedad 5→1, mismo nivel por fecha más antigua)
+GET {{Parcial2_HostAddress}}/api/pacientes
+Accept: {{json}}
+
+### OpenAPI
+GET {{Parcial2_HostAddress}}/openapi/v1.json
+Accept: {{json}}
+
+### Documentación Scalar
+GET {{Parcial2_HostAddress}}/scalar
+
+### POST — id generado; carnet inválido → 401
+POST {{Parcial2_HostAddress}}/api/pacientes
+Content-Type: {{json}}
+
+{
+  "nombre": "Juan Pérez",
+  "gravedad": 3,
+  "estado": "En espera",
+  "carnetMedico": "MED-0000"
+}
+
+### POST — alta válida
+POST {{Parcial2_HostAddress}}/api/pacientes
+Content-Type: {{json}}
+
+{
+  "nombre": "Juan Pérez",
+  "gravedad": 3,
+  "estado": "En espera",
+  "carnetMedico": "MED-1010"
+}
+
+### PUT — persistencia (sustituya el id)
+PUT {{Parcial2_HostAddress}}/api/pacientes/PAC-2026-001
+Content-Type: {{json}}
+
+{
+  "nombre": "Juan Pérez",
+  "gravedad": 2,
+  "estado": "Atendido",
+  "carnetMedico": "MED-1010"
+}
