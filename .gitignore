@@ -1,5 +1,8 @@
 .idea/
 
+# Overrides locales con secretos (no commitear)
+appsettings.*.local.json
+
 bin/
 obj/
 /packages/

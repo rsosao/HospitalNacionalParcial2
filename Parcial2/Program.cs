@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Parcial2.Data;
 using Parcial2.Services;
@@ -5,6 +6,14 @@ using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// App Service / IIS detrás de proxy: HTTPS y host correctos (evita URLs http o rotas mal resueltas en Scalar).
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
@@ -21,6 +30,8 @@ builder.Services.AddDbContext<HospitalContext>(options =>
 builder.Services.AddScoped<GeneradorIdPaciente>();
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Migraciones: si falla (conexión, SSL, firewall), el proceso sigue vivo para /health, Scalar y diagnóstico.
 // Revisa Log stream: el error real de MySQL queda registrado aquí.
@@ -40,8 +51,16 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapOpenApi();
-app.MapScalarApiReference();
-app.MapGet("/", () => Results.Redirect("/scalar"));
+app.MapScalarApiReference(options =>
+{
+    // Documento v1 de MapOpenApi() → /openapi/v1.json. Base dinámica para Azure (mismo host que la petición).
+    options
+        .WithTitle("Parcial2 — API Hospital")
+        .WithOpenApiRoutePattern("/openapi/v1.json")
+        .WithDynamicBaseServerUrl(true);
+});
+// Scalar 2: documento explícito en ruta; /scalar a veces redirige a /scalar/v1
+app.MapGet("/", () => Results.Redirect("/scalar/v1"));
 
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));

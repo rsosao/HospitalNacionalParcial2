@@ -13,8 +13,8 @@ Accept: {{json}}
 GET {{Parcial2_HostAddress}}/openapi/v1.json
 Accept: {{json}}
 
-### Documentación Scalar
-GET {{Parcial2_HostAddress}}/scalar
+### Documentación Scalar (documento v1)
+GET {{Parcial2_HostAddress}}/scalar/v1
 
 ### POST — id generado; carnet inválido → 401
 POST {{Parcial2_HostAddress}}/api/pacientes
