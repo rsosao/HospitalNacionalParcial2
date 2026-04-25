@@ -22,6 +22,8 @@ builder.Services.AddScoped<GeneradorIdPaciente>();
 
 var app = builder.Build();
 
+// Migraciones: si falla (conexión, SSL, firewall), el proceso sigue vivo para /health, Scalar y diagnóstico.
+// Revisa Log stream: el error real de MySQL queda registrado aquí.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HospitalContext>();
@@ -33,8 +35,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         logger.LogCritical(ex,
-            "No se pudieron aplicar migraciones. Compruebe la cadena de conexión, SSL, firewall de MySQL en Azure y que el servidor permita conexiones desde App Service.");
-        throw;
+            "No se pudieron aplicar migraciones. Revise: cadena de conexión, SslMode, firewall de Azure MySQL (Allow public access / reglas) y que 'DefaultConnection' exista en el App Service. La API devolverá error al usar la base hasta que esto se corrija.");
     }
 }
 
@@ -68,5 +69,8 @@ static string? ResolverCadenaConexion(ConfigurationManager configuration)
             return v;
     }
 
-    return configuration["ConnectionStrings:DefaultConnection"];
+    return configuration["ConnectionStrings:DefaultConnection"]
+        ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+        ?? Environment.GetEnvironmentVariable("MYSQLCONNSTR_defaultconnection")
+        ?? Environment.GetEnvironmentVariable("CUSTOMCONNSTR_defaultconnection");
 }
